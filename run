@@ -66,7 +66,7 @@ source "${INSTALLER}"
     printf "\\n::: Clean up ovpn profile folder\\n"
     rm -rf /home/"${pivpnUser}"/ovpns/*
 
-    printf "\\n\\n::: Installation Complete!\\n"
+    printf "\\n::: Installation Complete!\\n\\n"
 
 
     # Generate the client ovpn profile
@@ -75,6 +75,6 @@ source "${INSTALLER}"
     # openvpn --auth-nocache --config /home/"${pivpnUser}"/ovpns/"${CLIENT_NAME}".ovpn
 
 
-    printf "\\n\\n::: Start PiVPN Service ...\\n"
+    printf "\\n\\n::: Start PiVPN Service\\n"
     openvpn --config /etc/openvpn/server.conf
 } 2>&1 | tee "${instalLogLoc}"
