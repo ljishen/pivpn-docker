@@ -50,4 +50,4 @@ RUN apt-get clean \
 
 WORKDIR /home/"${pivpnUser}"
 COPY run .
-CMD ["./run"]
+CMD ["./run", "|", "tee", "-a", "${instalLogLoc}"]

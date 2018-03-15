@@ -48,23 +48,34 @@ else
     fi
 fi
 
+# This variable is initialized in confOpenVPN but also used in confOVPN.
+# We make it globalized so that it can keep the value and be passed to
+# the second function.
+SERVER_NAME=
 
 # Call functions in the INSTALLER
-confOpenVPN | tee -a "${instalLogLoc}"
-confNetwork | tee -a "${instalLogLoc}"
-confOVPN | tee -a "${instalLogLoc}"
+confOpenVPN
+confNetwork
+
+echo ${SERVER_NAME}
+confOVPN
 
 sed -i '0,/\(dhcp-option DNS \)/ s/\(dhcp-option DNS \).*/\1'${OVPNDNS1}'\"/' /etc/openvpn/server.conf
 sed -i '0,/\(dhcp-option DNS \)/! s/\(dhcp-option DNS \).*/\1'${OVPNDNS2}'\"/' /etc/openvpn/server.conf
 
 finalExports
 
-mkdir -p /home/"${pivpnUser}"/ovpns
+printf "\\n::: Clean up ovpn profile folder\\n"
+rm -rf /home/"${pivpnUser}"/ovpns/*
 
-echo "::: Installation Complete!"
+printf "\\n\\n::: Installation Complete!\\n"
 
 
-echo "::: Start PiVPN Service ..."
+# Generate a demo ovpn profile for client
 CLIENT_NAME=client
 pivpn -a -n "${CLIENT_NAME}" -p pivpn || true
-openvpn --auth-nocache --config /home/"${pivpnUser}"/ovpns/"${CLIENT_NAME}".ovpn
+# openvpn --auth-nocache --config /home/"${pivpnUser}"/ovpns/"${CLIENT_NAME}".ovpn
+
+
+printf "\\n\\n::: Start PiVPN Service ...\\n"
+openvpn --config /etc/openvpn/server.conf
