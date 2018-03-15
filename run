@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2034,SC2154
+# SC2034: foo appears unused. Verify it or export it.
+# SC2154: var is referenced but not assigned.
+
+set -eux
+
+INSTALLER=/etc/.pivpn/auto_install/install.sh
+
+# Skip execution when sourcing the INSTALLER
+PIVPN_TEST=true
+
+# shellcheck disable=SC1090
+source "${INSTALLER}"
+
+
+# Variables are needed in the functions call later.
+useUpdateVars=true
+PLAT=Ubuntu
+SUDO=
+SUDOE=
+
+# shellcheck disable=SC1091
+source /etc/pivpn/setupVars.conf
+
+PROTO=$pivpnProto
+
+if [[ "$IPv4_addr" != \#* ]];then
+    IPv4addr="$IPv4_addr"
+fi
+
+if [[ "$IPv4_gw" != \#* ]];then
+    IPv4gw="$IPv4_gw"
+fi
+
+# shellcheck disable=SC2153
+if [[ "$PUBLIC_DNS" != \#* ]];then
+    PUBLICDNS="$PUBLIC_DNS"
+else
+    if ! PUBLICDNS=$(dig +short myip.opendns.com @resolver1.opendns.com)
+    then
+        echo "dig failed, now trying to curl eth0.me"
+        if ! PUBLICDNS=$(curl eth0.me)
+        then
+            echo "eth0.me failed, please check your internet connection/DNS"
+            exit $?
+        fi
+    fi
+fi
+
+
+# Call functions in the INSTALLER
+confOpenVPN | tee -a "${instalLogLoc}"
+confNetwork | tee -a "${instalLogLoc}"
+confOVPN | tee -a "${instalLogLoc}"
+
+sed -i '0,/\(dhcp-option DNS \)/ s/\(dhcp-option DNS \).*/\1'${OVPNDNS1}'\"/' /etc/openvpn/server.conf
+sed -i '0,/\(dhcp-option DNS \)/! s/\(dhcp-option DNS \).*/\1'${OVPNDNS2}'\"/' /etc/openvpn/server.conf
+
+finalExports
+
+mkdir -p /home/"${pivpnUser}"/ovpns
+
+echo "::: Installation Complete!"
+
+
+echo "::: Start PiVPN Service ..."
+CLIENT_NAME=client
+pivpn -a -n "${CLIENT_NAME}" -p pivpn || true
+openvpn --auth-nocache --config /home/"${pivpnUser}"/ovpns/"${CLIENT_NAME}".ovpn

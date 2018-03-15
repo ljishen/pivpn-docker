@@ -3,13 +3,21 @@
 FROM phusion/baseimage:0.10.0
 MAINTAINER Jianshen Liu <jliu120@ucsc.edu>
 
-# Use baseimage-docker's init system.
-CMD ["/sbin/my_init"]
+# Silence error:
+# dpkg-preconfigure: unable to re-open stdin:
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    iproute2
+        iproute2 \
+        git
 
-ARG pivpnUser=pivpn
+ARG pivpnFilesDir=/etc/.pivpn
+RUN git clone https://github.com/pivpn/pivpn.git "${pivpnFilesDir}" \
+        && git -C "${pivpnFilesDir}" checkout aa625b98ffb00d71ef40ade3ac6b69cce40b7a8e
+
+# Set as env so that it can also be used in
+# the run script during the execution.
+ENV pivpnUser=pivpn
 
 # Due to an unresolved bug in the Go archive/tar package’s
 # handling of sparse files, attempting to create a user with
@@ -23,25 +31,23 @@ RUN useradd --no-log-init -rm -s /bin/bash "${pivpnUser}"
 
 COPY setupVars.conf /etc/pivpn/
 
+ARG PIVPN_TEST=false
+ARG SUDO=
+ARG SUDOE=
 ARG INSTALLER=/tmp/install.sh
 
-# 1. Remove the use of command "debconf-apt-progress" because
-#    the exit code is not 0 even on success.
-# 2. Function spinner does not work during image build, so
-#    remove the spinner call after the "git clone".
+# Command "debconf-apt-progress" is not responsive during the image build.
 RUN curl -fsSL0 https://install.pivpn.io -o "${INSTALLER}" \
     && sed -i 's/debconf-apt-progress --//g' "${INSTALLER}" \
-    && sed -i 's/\(git clone.*\) *>.*/\1/g' "${INSTALLER}" \
     && chmod +x "${INSTALLER}" \
-    && "${INSTALLER}" --unattended
+#    && sed -i 's/set -e/set -eux/g' "${INSTALLER}" \
+    && "${INSTALLER}" --unattended --reconfigure
 
-
-RUN sed -i 's/set -e/set -ex/g' "/etc/.pivpn/auto_install/install.sh"
-
-# Clean Up
+# Do NOT clean the /tmp/* since we are going to use the content
+# later in the run script.
 RUN apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && rm -rf /var/lib/apt/lists/* /var/tmp/*
 
 WORKDIR /home/"${pivpnUser}"
-COPY up .
-CMD ["up"]
+COPY run .
+CMD ["./run"]
