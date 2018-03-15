@@ -3,7 +3,7 @@
 # SC2034: foo appears unused. Verify it or export it.
 # SC2154: var is referenced but not assigned.
 
-set -eux
+set -eu
 
 INSTALLER=/etc/.pivpn/auto_install/install.sh
 
@@ -13,69 +13,68 @@ PIVPN_TEST=true
 # shellcheck disable=SC1090
 source "${INSTALLER}"
 
+# main procedural
+{
+    # Variables are needed in the functions call later.
+    useUpdateVars=true
+    PLAT=Ubuntu
+    SUDO=
+    SUDOE=
 
-# Variables are needed in the functions call later.
-useUpdateVars=true
-PLAT=Ubuntu
-SUDO=
-SUDOE=
+    # shellcheck disable=SC1091
+    source /etc/pivpn/setupVars.conf
 
-# shellcheck disable=SC1091
-source /etc/pivpn/setupVars.conf
+    PROTO=$pivpnProto
 
-PROTO=$pivpnProto
+    if [[ "$IPv4_addr" != \#* ]];then
+        IPv4addr="$IPv4_addr"
+    fi
 
-if [[ "$IPv4_addr" != \#* ]];then
-    IPv4addr="$IPv4_addr"
-fi
+    if [[ "$IPv4_gw" != \#* ]];then
+        IPv4gw="$IPv4_gw"
+    fi
 
-if [[ "$IPv4_gw" != \#* ]];then
-    IPv4gw="$IPv4_gw"
-fi
-
-# shellcheck disable=SC2153
-if [[ "$PUBLIC_DNS" != \#* ]];then
-    PUBLICDNS="$PUBLIC_DNS"
-else
-    if ! PUBLICDNS=$(dig +short myip.opendns.com @resolver1.opendns.com)
-    then
-        echo "dig failed, now trying to curl eth0.me"
-        if ! PUBLICDNS=$(curl eth0.me)
+    # shellcheck disable=SC2153
+    if [[ "$PUBLIC_DNS" != \#* ]];then
+        PUBLICDNS="$PUBLIC_DNS"
+    else
+        if ! PUBLICDNS=$(dig +short myip.opendns.com @resolver1.opendns.com)
         then
-            echo "eth0.me failed, please check your internet connection/DNS"
-            exit $?
+            echo "dig failed, now trying to curl eth0.me"
+            if ! PUBLICDNS=$(curl eth0.me)
+            then
+                echo "eth0.me failed, please check your internet connection/DNS"
+                exit $?
+            fi
         fi
     fi
-fi
 
-# This variable is initialized in confOpenVPN but also used in confOVPN.
-# We make it globalized so that it can keep the value and be passed to
-# the second function.
-SERVER_NAME=
+    # This variable is initialized in confOpenVPN but also used in confOVPN.
+    # We make it globalized so as to transit to the second function.
+    SERVER_NAME=
 
-# Call functions in the INSTALLER
-confOpenVPN
-confNetwork
+    # Call functions in the INSTALLER
+    confOpenVPN
+    confNetwork
+    confOVPN
 
-echo ${SERVER_NAME}
-confOVPN
+    sed -i '0,/\(dhcp-option DNS \)/ s/\(dhcp-option DNS \).*/\1'${OVPNDNS1}'\"/' /etc/openvpn/server.conf
+    sed -i '0,/\(dhcp-option DNS \)/! s/\(dhcp-option DNS \).*/\1'${OVPNDNS2}'\"/' /etc/openvpn/server.conf
 
-sed -i '0,/\(dhcp-option DNS \)/ s/\(dhcp-option DNS \).*/\1'${OVPNDNS1}'\"/' /etc/openvpn/server.conf
-sed -i '0,/\(dhcp-option DNS \)/! s/\(dhcp-option DNS \).*/\1'${OVPNDNS2}'\"/' /etc/openvpn/server.conf
+    finalExports
 
-finalExports
+    printf "\\n::: Clean up ovpn profile folder\\n"
+    rm -rf /home/"${pivpnUser}"/ovpns/*
 
-printf "\\n::: Clean up ovpn profile folder\\n"
-rm -rf /home/"${pivpnUser}"/ovpns/*
-
-printf "\\n\\n::: Installation Complete!\\n"
+    printf "\\n\\n::: Installation Complete!\\n"
 
 
-# Generate a demo ovpn profile for client
-CLIENT_NAME=client
-pivpn -a -n "${CLIENT_NAME}" -p pivpn || true
-# openvpn --auth-nocache --config /home/"${pivpnUser}"/ovpns/"${CLIENT_NAME}".ovpn
+    # Generate the client ovpn profile
+    # pivpn with exit code 1 even on success
+    pivpn -a -n "${CLIENT_NAME}" -p "${CLIENT_PASS}" || true
+    # openvpn --auth-nocache --config /home/"${pivpnUser}"/ovpns/"${CLIENT_NAME}".ovpn
 
 
-printf "\\n\\n::: Start PiVPN Service ...\\n"
-openvpn --config /etc/openvpn/server.conf
+    printf "\\n\\n::: Start PiVPN Service ...\\n"
+    openvpn --config /etc/openvpn/server.conf
+} 2>&1 | tee "${instalLogLoc}"
