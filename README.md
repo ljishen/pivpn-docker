@@ -6,8 +6,8 @@
    ```bash
    docker run -ti --rm \
         --privileged \
-        -p 443:443/udp
-        -v "$HOME"/ovpns:/home/pivpn/ovpns
+        -p 443:443/udp \
+        -v "$HOME"/ovpns:/home/pivpn/ovpns \
         ljishen/pivpn
    ```
 
