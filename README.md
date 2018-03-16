@@ -23,6 +23,8 @@
    sudo openvpn --auth-nocache --config client.ovpn
    ```
 
+   The default Private Key Password is `vpnpasswd` and you can change it in the configuration file `setupVars.conf`.
+
 4. In case you have any connection problems, try to modify the variables in file `setupVars.conf` before restarting the PiVPN server using the same command from `step 1`. You can also create an issue and let me know if I can help you.
 
 
