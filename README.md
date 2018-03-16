@@ -1,4 +1,4 @@
-# PiVPN in Docker
+# PiVPN in Docker Container
 
 ## Usage
 
