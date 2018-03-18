@@ -1,0 +1,35 @@
+{
+    "Type": "UnencryptedConfiguration",
+    "Certificates": [{
+        "GUID": "{<GUID_1>}",
+        "Type": "Authority",
+        "X509": "<CA_CERT>"
+    }],
+    "NetworkConfigurations": [{
+        "GUID": "{<GUID_2>}",
+        "Name": "PiVPN",
+        "Type": "VPN",
+        "VPN": {
+            "Type": "OpenVPN",
+            "Host": "<HOSTHAME>",
+            "OpenVPN": {
+                "ServerCARef": "{<GUID_1>}",
+                "AuthRetry": "interact",
+                "ClientCertType": "Pattern",
+                "ClientCertPattern": {
+                    "IssuerCARef": ["{<GUID_1>}"]
+                },
+                "CompLZO": "true",
+                "Port": <PORT>,
+                "Proto": "<PROTO>",
+                "RemoteCertTLS": "server",
+                "RemoteCertEKU": "TLS Web Server Authentication",
+                "SaveCredentials": false,
+                "ServerPollTimeout": 10,
+                "Username": "<USERNAME>",
+                "KeyDirection": "1",
+                "TLSAuthContents": "<TLS_AUTH_KEY>"
+            }
+        }
+    }]
+}

@@ -1,5 +1,8 @@
 # PiVPN in Docker Container
 
+Setting up an VPN server is easy, but we can make it even easier and you can do it within 1 min. All the prerequisite is just the docker which has been compatible with the Raspberry Pi for a while. If you don't have the docker installed on your little machine, go and check it out [here](https://www.raspberrypi.org/blog/docker-comes-to-raspberry-pi/).
+
+
 ## Usage
 
 1. Launch PiVPN on a machine, which would be the PiVPN server.
