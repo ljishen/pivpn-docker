@@ -52,7 +52,11 @@ openssl pkcs12 -export \
     -passin pass:"${passwd}" \
     -passout pass:"${passwd}"
 
-chmod 0600 "${key_file}" "${p12_file}"
+# Generate .p12.b64 file
+p12_b64_file="${output_dir}"/"${USERNAME}".p12.b64
+base64 "${p12_file}" > "${p12_b64_file}"
+
+chmod 0600 "${key_file}" "${p12_file}" "${p12_b64_file}"
 
 
 # Generate .onc file
