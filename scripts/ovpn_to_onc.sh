@@ -47,6 +47,7 @@ openssl pkcs12 -export \
     -inkey "${key_file}" \
     -in "${crt_file}" \
     -certfile "${ca_file}" \
+    -name PiVPN_"${USERNAME}" \
     -out "${p12_file}" \
     -passin pass:"${passwd}" \
     -passout pass:"${passwd}"
