@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ARG pivpnFilesDir=/etc/.pivpn
 # Should check all the logics before upgrading the version
 RUN git clone https://github.com/pivpn/pivpn.git "${pivpnFilesDir}" \
-        && git -C "${pivpnFilesDir}" checkout aa625b98ffb00d71ef40ade3ac6b69cce40b7a8e
+        && git -C "${pivpnFilesDir}" checkout 1375fa13741d8fa20b18538cf514ae9056268484
 
 # Set as env so that it can also be used in
 # the run script during the execution.
