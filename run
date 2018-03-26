@@ -26,18 +26,14 @@ source "${INSTALLER}"
 
     PROTO=$pivpnProto
 
-    if [[ "$IPv4_addr" != \#* ]];then
-        IPv4addr="$IPv4_addr"
-    fi
-
-    if [[ "$IPv4_gw" != \#* ]];then
-        IPv4gw="$IPv4_gw"
+    # The right way to test if a variable is unset or not.
+    # See https://stackoverflow.com/a/13864829
+    if [ -z ${IPv4dns+x} ]; then
+        IPv4dns=$(nslookup 127.0.0.1 | grep Server: | awk '{print $2}')
     fi
 
     # shellcheck disable=SC2153
-    if [[ "$PUBLIC_DNS" != \#* ]];then
-        PUBLICDNS="$PUBLIC_DNS"
-    else
+    if [ -z ${PUBLICDNS+x} ]; then
         if ! PUBLICDNS=$(dig +short myip.opendns.com @resolver1.opendns.com)
         then
             echo "dig failed, now trying to curl eth0.me"
@@ -48,6 +44,11 @@ source "${INSTALLER}"
             fi
         fi
     fi
+
+    keys=(pivpnInterface IPv4addr IPv4gw IPv4dns)
+    for k in "${keys[@]}"; do
+        sed -i "s/#${k}#/${!k}/g" "${dhcpcdFile}"
+    done
 
     # This variable is initialized in confOpenVPN but also used in confOVPN.
     # We make it globalized so as to transit to the second function.
@@ -72,7 +73,6 @@ source "${INSTALLER}"
     # Generate the client ovpn profile
     # pivpn with exit code 1 even on success
     pivpn -a -n "${CLIENT_NAME}" -p "${CLIENT_PASS}" || true
-    # openvpn --auth-nocache --config /home/"${pivpnUser}"/ovpns/"${CLIENT_NAME}".ovpn
 
 
     printf "\\n\\n::: Start PiVPN Service\\n"
