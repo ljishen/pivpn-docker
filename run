@@ -32,7 +32,6 @@ source "${INSTALLER}"
         IPv4dns=$(nslookup 127.0.0.1 | grep Server: | awk '{print $2}')
     fi
 
-    # shellcheck disable=SC2153
     if [ -z ${PUBLICDNS+x} ]; then
         if ! PUBLICDNS=$(dig +short myip.opendns.com @resolver1.opendns.com)
         then

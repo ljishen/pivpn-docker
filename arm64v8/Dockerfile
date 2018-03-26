@@ -1,6 +1,6 @@
 # VERSION 1.0
 
-FROM resin/raspberrypi3-debian
+FROM resin/raspberrypi3-debian:stretch
 MAINTAINER Jianshen Liu <jliu120@ucsc.edu>
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -35,7 +35,7 @@ ARG INSTALLER=/tmp/install.sh
 
 # Customize the content to be appended to /etc/dhcpcd.conf so that
 # we can replace the placeholders later in the run script.
-RUN echo '\n\
+RUN printf '\n\
 interface #pivpnInterface#\n\
 static ip_address=#IPv4addr#\n\
 static routers=#IPv4gw#\n\
