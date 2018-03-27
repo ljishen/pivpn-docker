@@ -12,14 +12,15 @@ script:
   - docker run --rm --privileged multiarch/qemu-user-static:register --reset
 
   # build image
-  - docker build -t ljishen/pivpn:armv7hf . -f armv7hf
+  - docker build -t ljishen/pivpn:armv7hf . -f armv7hf/Dockerfile
 
   # test image
-  - docker run -ti --rm \
+  - docker run -d \
       --privileged \
       -p 443:443/udp \
       -v "$HOME"/ovpns:/home/pivpn/ovpns \
       ljishen/pivpn
+  - if [ ! -f "$HOME"/ovpns/client.ovpn ]; then exit 1; fi
 
 after_success:
   # push image
