@@ -1,0 +1,29 @@
+# Routes builds to run on Trusty
+# See using docker in builds: https://docs.travis-ci.com/user/docker/
+sudo: required
+services:
+  - docker
+
+language: ruby
+
+script:
+	# configure binfmt-support on the Docker host
+	# See https://github.com/multiarch/alpine
+	- docker run --rm --privileged multiarch/qemu-user-static:register --reset
+
+	# build image
+	- docker build -t ljishen/pivpn:armv7hf . -f armv7hf
+  
+  # test image
+	- docker run -ti --rm \
+     --privileged \
+     -p 443:443/udp \
+     -v "$HOME"/ovpns:/home/pivpn/ovpns \
+     ljishen/pivpn 
+
+after_success:
+	# push image
+	- if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
+			docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+			docker push ljishen/pivpn:armv7hf
+		fi
