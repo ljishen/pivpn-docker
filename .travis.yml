@@ -15,10 +15,10 @@ script:
   - docker build -t ljishen/pivpn:armv7hf . -f armv7hf/Dockerfile
 
   # test image
-  - docker run -d \
-      --privileged \
-      -p 443:443/udp \
-      -v "$HOME"/ovpns:/home/pivpn/ovpns \
+  - docker run -d
+      --privileged
+      -p 443:443/udp
+      -v "$HOME"/ovpns:/home/pivpn/ovpns
       ljishen/pivpn
   - if [ ! -f "$HOME"/ovpns/client.ovpn ]; then exit 1; fi
 
