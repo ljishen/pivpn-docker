@@ -6,6 +6,9 @@ services:
 
 language: ruby
 
+before_script:
+  - docker version
+
 script:
   # configure binfmt-support on the Docker host
   # See https://github.com/multiarch/alpine
@@ -15,12 +18,11 @@ script:
   - docker build -t ljishen/pivpn:armv7hf . -f armv7hf/Dockerfile
 
   # test image
-  - docker run -d
+  - docker run -ti --rm
       --privileged
       -p 443:443/udp
       -v "$HOME"/ovpns:/home/pivpn/ovpns
       ljishen/pivpn:armv7hf
-  - if [ ! -f "$HOME"/ovpns/client.ovpn ]; then exit 1; fi
 
 after_success:
   # push image
