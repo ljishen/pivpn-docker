@@ -19,7 +19,7 @@ script:
       --privileged
       -p 443:443/udp
       -v "$HOME"/ovpns:/home/pivpn/ovpns
-      ljishen/pivpn
+      ljishen/pivpn:armv7hf
   - if [ ! -f "$HOME"/ovpns/client.ovpn ]; then exit 1; fi
 
 after_success:
