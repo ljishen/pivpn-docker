@@ -7,8 +7,7 @@ services:
 language: ruby
 
 before_script:
-  - sudo apt-get update -q
-  - sudo apt-get install module-init-tools -y
+  - sudo insmod ip_tables
   - docker version
 
 script:
