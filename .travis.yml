@@ -7,6 +7,8 @@ services:
 language: ruby
 
 before_script:
+  - apt-get update -q
+  - apt-get install module-init-tools -y
   - docker version
 
 script:
@@ -26,7 +28,8 @@ script:
 
 after_success:
   # push image
-  - if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
+  - |
+    if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
       docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
       docker push ljishen/pivpn:armv7hf
     fi
