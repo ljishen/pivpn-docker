@@ -7,7 +7,6 @@ services:
 language: ruby
 
 before_script:
-  - sudo insmod ip_tables
   - docker version
 
 script:
@@ -17,6 +16,7 @@ script:
 
   # build image
   - docker build -t ljishen/pivpn:armv7hf . -f armv7hf/Dockerfile
+  - exit
 
   # test image
   - docker run -ti --rm
