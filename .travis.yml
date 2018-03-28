@@ -10,22 +10,25 @@ before_script:
   - sudo modprobe ip_tables
 
 script:
-  # configure binfmt-support on the Docker host
+  # Configure binfmt-support on the Docker host
   # See https://github.com/multiarch/alpine
   - docker run --rm --privileged multiarch/qemu-user-static:register --reset
 
-  # build image
+  # Build image
   - docker build -t ljishen/pivpn:armv7hf . -f armv7hf/Dockerfile
 
-  # test image
+  # Test image
+  # Export the env TINI_SUBREAPER to fix the warning from tini:
+  # [WARN  tini (23)] Tini is not running as PID 1 and isn't registered as a child subreaper.
   - docker run -ti --rm
       --privileged
       -p 443:443/udp
       -v "$HOME"/ovpns:/home/pivpn/ovpns
+      -e TINI_SUBREAPER=true
       ljishen/pivpn:armv7hf
 
 after_success:
-  # push image
+  # Push image
   - |
     if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
       docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
