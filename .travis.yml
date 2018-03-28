@@ -7,8 +7,9 @@ services:
 language: ruby
 
 before_script:
+  - sudo apt-get update -q
+  - sudo apt-get install easy-rsa -y
   - sudo modprobe ip_tables
-  - docker version
 
 script:
   # configure binfmt-support on the Docker host
