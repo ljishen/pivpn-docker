@@ -6,9 +6,6 @@ services:
 
 language: ruby
 
-before_script:
-  - sudo modprobe ip_tables
-
 script:
   # Configure binfmt-support on the Docker host
   # See https://github.com/multiarch/alpine
@@ -16,16 +13,6 @@ script:
 
   # Build image
   - docker build -t ljishen/pivpn:armv7hf . -f armv7hf/Dockerfile
-
-  # Test image
-  # Export the env TINI_SUBREAPER to fix the warning from tini:
-  # [WARN  tini (23)] Tini is not running as PID 1 and isn't registered as a child subreaper.
-  - docker run -ti --rm
-      --privileged
-      -p 443:443/udp
-      -v "$HOME"/ovpns:/home/pivpn/ovpns
-      -e TINI_SUBREAPER=true
-      ljishen/pivpn:armv7hf
 
 after_success:
   # Push image
