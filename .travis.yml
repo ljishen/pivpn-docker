@@ -6,18 +6,23 @@ services:
 
 language: ruby
 
+env:
+  global:
+    - IMAGE_NAME=ljishen/pivpn:armv7hf
+
 script:
   # Configure binfmt-support on the Docker host
   # See https://github.com/multiarch/alpine
   - docker run --rm --privileged multiarch/qemu-user-static:register --reset
 
   # Build image
-  - docker build -t ljishen/pivpn:armv7hf . -f armv7hf/Dockerfile
+  - docker build -t "${IMAGE_NAME}" . -f armv7hf/Dockerfile
 
-after_success:
-  # Push image
-  - |
-    if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-      docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
-      docker push ljishen/pivpn:armv7hf
-    fi
+before_deploy:
+  - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+
+deploy:
+  provider: script
+  script: docker push "${IMAGE_NAME}"
+  on:
+    branch: master
