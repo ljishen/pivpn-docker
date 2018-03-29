@@ -1,5 +1,14 @@
 # PiVPN in Docker Container
 
+[![Build Status](https://travis-ci.org/ljishen/pivpn-docker.svg?branch=master)](https://travis-ci.org/ljishen/pivpn-docker)
+
+[![](https://images.microbadger.com/badges/version/ljishen/pivpn:amd64.svg)](https://microbadger.com/images/ljishen/pivpn:amd64 "Get your own version badge on microbadger.com")
+[![](https://images.microbadger.com/badges/image/ljishen/pivpn:amd64.svg)](https://microbadger.com/images/ljishen/pivpn:amd64 "Get your own image badge on microbadger.com")
+
+[![](https://images.microbadger.com/badges/version/ljishen/pivpn:armv7hf.svg)](https://microbadger.com/images/ljishen/pivpn:armv7hf "Get your own version badge on microbadger.com")
+[![](https://images.microbadger.com/badges/image/ljishen/pivpn:armv7hf.svg)](https://microbadger.com/images/ljishen/pivpn:armv7hf "Get your own image badge on microbadger.com")
+
+
 Setting up an VPN server is easy, but we can make it even easier and you can do it within 1 min. All the prerequisite is just the docker which has been compatible with the Raspberry Pi for a while. If you don't have the docker installed on your little machine, go and check it out [here](https://www.raspberrypi.org/blog/docker-comes-to-raspberry-pi/).
 
 
