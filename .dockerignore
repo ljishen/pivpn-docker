@@ -3,3 +3,4 @@ LICENSE
 scripts
 
 .gitignore
+.travis.yml
