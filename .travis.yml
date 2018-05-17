@@ -1,4 +1,4 @@
-# Routes builds to run on Trusty
+# Routes builds to run on our Trusty sudo-enabled infrastructure
 # See using docker in builds: https://docs.travis-ci.com/user/docker/
 sudo: required
 services:
