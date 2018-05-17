@@ -58,11 +58,15 @@ Setting up an VPN server is easy, but we can make it even easier and you can do 
 
 ## Miscellaneous
 
-#### Commands to Create the Docker Manifest
+#### Commands to Create the Docker Image Manifest
 
 ```bash
 docker manifest create ljishen/pivpn ljishen/pivpn:amd64 ljishen/pivpn:armv7hf
 docker manifest annotate ljishen/pivpn ljishen/pivpn:armv7hf --os linux --arch arm --variant v7
 docker manifest annotate ljishen/pivpn ljishen/pivpn:amd64 --os linux --arch amd64
-docker manifest push ljishen/pivpn
+
+# purge the local manifest after push so that I can
+# upgrade the manifest by creating a new one next time.
+# https://github.com/docker/for-win/issues/1770
+docker manifest push --purge ljishen/pivpn
 ```
