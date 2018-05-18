@@ -16,7 +16,7 @@ script:
   - docker run --rm --privileged multiarch/qemu-user-static:register --reset
 
   # Build image
-  - docker build -t "${IMAGE_NAME}" . -f armv7hf/Dockerfile
+  - docker build --cache-from "${IMAGE_NAME}" -t "${IMAGE_NAME}" . -f armv7hf/Dockerfile
 
 before_deploy:
   - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
