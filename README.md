@@ -33,6 +33,7 @@ Setting up an VPN server is easy, but we can make it even easier and you can do 
         -v "$HOME"/ovpns:/home/pivpn/ovpns \
         ljishen/pivpn
    ```
+   Wait until you see `PiVPN Service Started`
 
 2. Copy the client ovpn profile under `"$HOME"/ovpns` to the machine/device from where you want to connect to the PiVPN server. The name of the client profile is `client.ovpn` by default.
 

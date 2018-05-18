@@ -74,6 +74,6 @@ source "${INSTALLER}"
     pivpn -a -n "${CLIENT_NAME}" -p "${CLIENT_PASS}" || true
 
 
-    printf "\\n\\n::: Start PiVPN Service\\n"
+    printf "\\n\\n::: PiVPN Service Started\\n"
     openvpn --config /etc/openvpn/server.conf
 } 2>&1 | tee "${instalLogLoc}"
