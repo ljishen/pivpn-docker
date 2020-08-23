@@ -3,77 +3,62 @@
 # SC2034: foo appears unused. Verify it or export it.
 # SC2154: var is referenced but not assigned.
 
-set -eu
-
-INSTALLER=/etc/.pivpn/auto_install/install.sh
-
-# Skip execution when sourcing the INSTALLER
-PIVPN_TEST=true
-
-# shellcheck disable=SC1090
-source "${INSTALLER}"
+[[ ! -d /etc/openvpn ]] && mkdir /etc/openvpn
 
 # main procedural
 {
-    # Variables are needed in the functions call later.
-    useUpdateVars=true
-    PLAT=Ubuntu
-    SUDO=
-    SUDOE=
+	INSTALLER=/etc/.pivpn/auto_install/install.sh
 
-    # shellcheck disable=SC1091
-    source /etc/pivpn/setupVars.conf
+	# Skip execution when sourcing the INSTALLER
+	IN_DOCKER=true
 
-    PROTO=$pivpnProto
+	# shellcheck disable=SC1090
+	source "${INSTALLER}"
 
-    # The right way to test if a variable is unset or not.
-    # See https://stackoverflow.com/a/13864829
-    if [ -z ${IPv4dns+x} ]; then
-        IPv4dns=$(nslookup 127.0.0.1 | grep Server: | awk '{print $2}')
-    fi
+	# Variables are needed in the functions call later.
+	useUpdateVars=true
+	PLAT=Ubuntu
+	SUDO=
+	SUDOE=
+	runUnattended=true
+	USING_UFW=0
 
-    if [ -z ${PUBLICDNS+x} ]; then
-        if ! PUBLICDNS=$(dig +short myip.opendns.com @resolver1.opendns.com)
-        then
-            echo "dig failed, now trying to curl eth0.me"
-            if ! PUBLICDNS=$(curl eth0.me)
-            then
-                echo "eth0.me failed, please check your internet connection/DNS"
-                exit $?
-            fi
-        fi
-    fi
+	# shellcheck disable=SC1091
+	source /etc/pivpn/setupVars.conf
 
-    keys=(pivpnInterface IPv4addr IPv4gw IPv4dns)
-    for k in "${keys[@]}"; do
-        sed -i "s/#${k}#/${!k}/g" "${dhcpcdFile}"
-    done
+	# The right way to test if a variable is unset or not.
+	# See https://stackoverflow.com/a/13864829
+	if [ -z ${IPv4dns+x} ]; then
+		IPv4dns=$(nslookup 127.0.0.1 | grep Server: | awk '{print $2}')
+	fi
 
-    # This variable is initialized in confOpenVPN but also used in confOVPN.
-    # We make it globalized so as to transit to the second function.
-    SERVER_NAME=
+	if [ -z ${pivpnHOST+x} ]; then
+		if ! pivpnHOST=$(dig +short myip.opendns.com @resolver1.opendns.com)
+		then
+			echo "dig failed, now trying to curl eth0.me"
+			if ! pivpnHOST=$(curl eth0.me)
+			then
+				echo "eth0.me failed, please check your internet connection/DNS"
+				exit $?
+			fi
+		fi
+	fi
 
-    # Call functions in the INSTALLER
-    confOpenVPN
-    confNetwork
-    confOVPN
+	# Call functions in the INSTALLER
+	[[ -z "${IPv4dev}" ]] && chooseInterface
+	[[ -z "${SERVER_NAME}" ]] && generateServerName
+	[[ ! -d /etc/openvpn/easy-rsa ]] && GenerateOpenVPN
+	createServerConf
+	confNetwork
+	confOVPN
 
-    sed -i '0,/\(dhcp-option DNS \)/ s/\(dhcp-option DNS \).*/\1'${OVPNDNS1}'\"/' /etc/openvpn/server.conf
-    sed -i '0,/\(dhcp-option DNS \)/! s/\(dhcp-option DNS \).*/\1'${OVPNDNS2}'\"/' /etc/openvpn/server.conf
+	sed -i '0,/\(dhcp-option DNS \)/ s/\(dhcp-option DNS \).*/\1'${pivpnDNS1}'\"/' /etc/openvpn/server.conf
+	sed -i '0,/\(dhcp-option DNS \)/! s/\(dhcp-option DNS \).*/\1'${pivpnDNS2}'\"/' /etc/openvpn/server.conf
 
-    finalExports
+	printf "\\n\\n::: PiVPN Service Started\\n"
+	cd /etc/openvpn
+	openvpn --config server.conf
+} 2>&1 | tee "/etc/pivpn-openvpn.log"
 
-    printf "\\n::: Clean up ovpn profile folder\\n"
-    rm -rf /home/"${pivpnUser}"/ovpns/*
-
-    printf "\\n::: Installation Complete!\\n\\n"
-
-
-    # Generate the client ovpn profile
-    # pivpn with exit code 1 even on success
-    pivpn -a -n "${CLIENT_NAME}" -p "${CLIENT_PASS}" || true
-
-
-    printf "\\n\\n::: PiVPN Service Started\\n"
-    openvpn --config /etc/openvpn/server.conf
-} 2>&1 | tee "${instalLogLoc}"
+# When script is complete, transfer log to persistant OpenVPN directory:
+[[ -d /etc/openvpn ]] && mv /etc/pivpn-openvpn.log /etc/openvpn/

@@ -22,22 +22,42 @@ Setting up an VPN server is easy, but we can make it even easier and you can do 
 - x86_64/amd64
 - armv7hf (Raspberry Pi 2 and 3)
 
+<hr>
 
-## Usage
+## Server-side Usage
 
-1. Launch PiVPN on a machine, which would be the PiVPN server.
-   ```bash
-   docker run -ti --rm \
-        --privileged \
-        -p 443:443/udp \
-        -v "$HOME"/ovpns:/home/pivpn/ovpns \
-        ljishen/pivpn
-   ```
-   Wait until you see `PiVPN Service Started`
+### Using Docker
 
-2. Copy the client ovpn profile under `"$HOME"/ovpns` to the machine/device from where you want to connect to the PiVPN server. The name of the client profile is `client.ovpn` by default.
+How to launch PiVPN on the PiVPN server machine using ```docker```:
+```bash
+docker run -ti --rm \
+    --privileged \
+	--net host \
+    -p 1194:1194/udp \
+    -v /home/docker/pivpn/ovpns:/home/pivpn/ovpns \
+    -v /home/docker/pivpn/openvpn:/etc/openvpn \
+    ljishen/pivpn
+```
+Wait until you see `PiVPN Service Started`
 
-3. Install the `OpenVPN` application on the client. On Debian OS, it would be as easy as
+### Using Docker-Compose
+
+How to launch PiVPN on the PiVPN server machine using ```docker-compose```, using the included ```docker-compose.yaml```:
+```bash
+docker-compose -f **<repo>**/docker-compose.yaml up -d
+```
+
+### Container First Run
+
+On first launch, the certificates and DH parameters are generated.  Without a volume mounted at `/etc/openvpn`, the certificates and DH parameters will be generated **EVERY** time the container is started!
+
+<hr>
+
+## Client-side Usage
+
+1. Copy the client ovpn profile under `"$HOME"/ovpns` to the machine/device from where you want to connect to the PiVPN server. The name of the client profile is `client.ovpn` by default.
+
+2. Install the `OpenVPN` application on the client. On Debian OS, it would be as easy as
    ```bash
    sudo apt-get install openvpn
    ```
@@ -46,11 +66,6 @@ Setting up an VPN server is easy, but we can make it even easier and you can do 
    ```bash
    sudo openvpn --auth-nocache --config client.ovpn
    ```
-
-   The default Private Key Password is `vpnpasswd` and you can change it in the configuration file `setupVars.conf`.
-
-4. In case you have any connection problems, try to modify the variables in file `setupVars.conf` before restarting the PiVPN server using the same command from `step 1`. You can also create an issue and let me know if I can help you.
-
 
 ## Credit
 
