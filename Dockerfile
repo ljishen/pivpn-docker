@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends iproute2 git dh
 # this issue.
 # :: See https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
 #=============================================================================================================================
-RUN useradd --no-log-init -rm -s /bin/bash "${install_user}"
+RUN useradd --no-log-init -m -s /bin/bash "${install_user}"
 
 #=============================================================================================================================
 # Copy setupVars.conf and force PiVPN port to be 1194.  The port can be overridden using docker's port mapping switches.
@@ -56,24 +56,26 @@ RUN sed -i "s|pivpnPORT=.*|pivpnPORT=1194|g" "${setupVars}"
 # 10. Split OpenVPN backup code from new "generateServerName" function into "backupOpenVPN" function
 # 11. Split code pulling EasyRSA from "backupOpenVPN" function into "confOpenVPN" function
 # 12. Split code creating server certificates and DH params from "confOpenVPN" function into "GenerateOpenVPN" function
-# 13. Split code writing "server.conf" from "GenerateOpenVPN" function into "createServerConf" function
+# 13. Split user creation code from "GenerateOpenVPN" function into "createOVPNuser" function
 # 14. Hide output of "getent passwd openvpn" command
+# 15. Split writing "server.conf" code from "createOVPNuser" function into "createServerConf" function.
 #=============================================================================================================================
-#RUN curl -fsSL0 https://install.pivpn.io -o "${INSTALLER}"
-RUN sed -i 's/debconf-apt-progress --//g' "${INSTALLER}" \
+RUN curl -fsSL0 https://install.pivpn.io -o "${INSTALLER}" \
+	&& sed -i 's/debconf-apt-progress --//g' "${INSTALLER}" \
 	&& sed -i '/systemctl start/d' "${INSTALLER}" \
 	&& sed -i '/setStaticIPv4 #/d' "${INSTALLER}" \
 	&& sed -i "/restartServices$/d" "${INSTALLER}" \
 	&& sed -i "/confLogging$/d" "${INSTALLER}" \
 	&& sed -i "s|main \"\$@\"|if [[ -z \"\$IN_DOCKER\" ]]; then\n\tmain \"\$@\"\nfi|g" "${INSTALLER}" \
-	&& sed -i 's|confOVPN$|[[ ! -z "\$IN_DOCKER" ]] \&\& confOVPN|g' "${INSTALLER}" \
+	&& sed -i 's|confOVPN$|createOVPNuser|g' "${INSTALLER}" \
 	&& sed -i 's|confNetwork$|[[ ! -z "\$IN_DOCKER" ]] \&\& confNetwork|g' "${INSTALLER}" \
 	&& sed -i "s|confOpenVPN(){|generateServerName(){|" "${INSTALLER}" \
-	&& sed -i "s|\t# Backup the openvpn folder|}\n\nbackupOpenVPN(){\n\t# Backup the openvpn folder|" "${INSTALLER}" \
+	&& sed -i "s|# Backup the openvpn folder|echo \"SERVER_NAME=\$SERVER_NAME\" >> \"/etc/openvpn/.server_name\"\n}\n\nbackupOpenVPN(){\n\t# Backup the openvpn folder|" "${INSTALLER}" \
 	&& sed -i "s|\tif \[ -f /etc/openvpn/server.conf \]; then|}\n\nconfOpenVPN(){\n\tif [ -f /etc/openvpn/server.conf ]; then|" "${INSTALLER}" \
 	&& sed -i 's|cd /etc/openvpn/easy-rsa|$SUDO mv /etc/openvpn /etc/openvpn.orig\n}\n\nGenerateOpenVPN() {\n\t$SUDO cp -R /etc/openvpn.orig/* /etc/openvpn/\n\tcd /etc/openvpn/easy-rsa|' "${INSTALLER}" \
-	&& sed -i "s|  if ! getent passwd openvpn; then|}\n\ncreateServerConf(){\n\t  if ! getent passwd openvpn; then|" "${INSTALLER}" \
-	&& sed -i "s|getent passwd openvpn|getent passwd openvpn \>\& /dev/null|" "${INSTALLER}"
+	&& sed -i "s|  if ! getent passwd openvpn; then|}\n\ncreateOVPNuser(){\n  if ! getent passwd openvpn; then|" "${INSTALLER}" \
+	&& sed -i "s|getent passwd openvpn|getent passwd openvpn \>\& /dev/null|" "${INSTALLER}" \
+	&& sed -i "s|  \${SUDOE} chown \"\$debianOvpnUserGroup\" /etc/openvpn/crl.pem|}\n\ncreateServerConf(){\n  \${SUDOE} chown \"\$debianOvpnUserGroup\" /etc/openvpn/crl.pem|" "${INSTALLER}"
 
 #=============================================================================================================================
 # Run the installer, clean up leftover archive files, then clean up apt lists and files in "/var/tmp" and "/tmp":

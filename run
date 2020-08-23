@@ -25,6 +25,7 @@
 
 	# shellcheck disable=SC1091
 	source /etc/pivpn/setupVars.conf
+	[[ -f /etc/openvpn/.server_name ]] && source /etc/openvpn/.server_name
 
 	# The right way to test if a variable is unset or not.
 	# See https://stackoverflow.com/a/13864829
@@ -51,9 +52,6 @@
 	createServerConf
 	confNetwork
 	confOVPN
-
-	sed -i '0,/\(dhcp-option DNS \)/ s/\(dhcp-option DNS \).*/\1'${pivpnDNS1}'\"/' /etc/openvpn/server.conf
-	sed -i '0,/\(dhcp-option DNS \)/! s/\(dhcp-option DNS \).*/\1'${pivpnDNS2}'\"/' /etc/openvpn/server.conf
 
 	printf "\\n\\n::: PiVPN Service Started\\n"
 	cd /etc/openvpn
