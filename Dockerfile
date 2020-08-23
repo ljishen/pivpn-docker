@@ -12,10 +12,10 @@ ENV install_user=pivpn
 ENV IN_DOCKER=
 
 # Pulled PiVPN Repository location
-ARG pivpnFilesDir=/etc/.pivpn
+ARG pivpnFilesDir=/usr/local/src/pivpn
 
 # PiVPN Installer location
-ARG INSTALLER=/etc/.pivpn/auto_install/install.sh
+ARG INSTALLER=${pivpnFilesDir}/auto_install/install.sh
 
 # PiVPN setupVars.conf location
 ARG setupVars=/etc/pivpn/setupVars.conf

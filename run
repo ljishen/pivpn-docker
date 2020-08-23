@@ -7,7 +7,8 @@
 
 # main procedural
 {
-	INSTALLER=/etc/.pivpn/auto_install/install.sh
+	pivpnFilesDir=/usr/local/src/pivpn
+	INSTALLER=${pivpnFilesDir}/auto_install/install.sh
 
 	# Skip execution when sourcing the INSTALLER
 	IN_DOCKER=true
