@@ -14,8 +14,9 @@ ENV IN_DOCKER=
 # Pulled PiVPN Repository location
 ARG pivpnFilesDir=/usr/local/src/pivpn
 
-# PiVPN Installer location
-ARG INSTALLER=${pivpnFilesDir}/auto_install/install.sh
+# PiVPN installer locations
+ARG ORIGINAL=${pivpnFilesDir}/auto_install/install.sh
+ARG MODDED=/tmp/pivpn_install_modded.sh
 
 # PiVPN setupVars.conf location
 ARG setupVars=/etc/pivpn/setupVars.conf
@@ -24,6 +25,7 @@ ARG setupVars=/etc/pivpn/setupVars.conf
 # Install the prerequisites, then pull the PiVPN repo.  Also create a "cls" clone of the "clear" command...
 #=============================================================================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends iproute2 git dhcpcd5 nano \
+		iptables-persistent bsdmainutils net-tools whiptail dnsutils grep wget tar net-tools openvpn expect curl sudo grepcidr \
 	&& git clone https://github.com/pivpn/pivpn.git "${pivpnFilesDir}" \
 	&& ln -sf /usr/bin/clear /usr/local/bin/cls
 
@@ -43,50 +45,56 @@ COPY setupVars.conf "${setupVars}"
 RUN sed -i "s|pivpnPORT=.*|pivpnPORT=1194|g" "${setupVars}"
 
 #=============================================================================================================================
-# What each line does:
-#  1. Remove "debconf-apt-progress" usage because command is not responsive during the image build
-#  2. Remove the command line "systemctl start openvpn.service" since the systemctl is not supported during the image build
-#  3. Remove the calling of function "setStaticIPv4"
-#  4. Remove the calling of function "RestartServices"
-#  5. Remove the calling of function "confLogging"
-#  6. Modify main function call to be skipped if we are running a docker container
-#  7. Skip creating server certificates and DH parameters if we are not running a docker container
-#  8. Skip configuring the network if we are not running a docker container
+# What each line does (in order):
+#  1. Copies the original installer to modified installer location
+#  2. Remove "debconf-apt-progress" usage because command is not responsive during the image build
+#  3. Remove the command line "systemctl start openvpn.service" since the systemctl is not supported during the image build
+#  4. Remove the calling of function "setStaticIPv4"
+#  5. Remove the calling of function "RestartServices"
+#  6. Remove the calling of function "confLogging"
+#  7. Change calling of function "confOVPN" to function "createOVPNuser"
+#  8. Remove the calling of function "confNetwork"
 #  9. Rename "confOpenVPN" function to "generateServerName"
 # 10. Split OpenVPN backup code from new "generateServerName" function into "backupOpenVPN" function
 # 11. Split code pulling EasyRSA from "backupOpenVPN" function into "confOpenVPN" function
 # 12. Split code creating server certificates and DH params from "confOpenVPN" function into "GenerateOpenVPN" function
 # 13. Split user creation code from "GenerateOpenVPN" function into "createOVPNuser" function
-# 14. Hide output of "getent passwd openvpn" command
-# 15. Split writing "server.conf" code from "createOVPNuser" function into "createServerConf" function.
+# 14. Split writing "server.conf" code from "createOVPNuser" function into "createServerConf" function.
+# 15. Hide output of "getent passwd openvpn" command
 #=============================================================================================================================
-RUN curl -fsSL0 https://install.pivpn.io -o "${INSTALLER}" \
-	&& sed -i 's/debconf-apt-progress --//g' "${INSTALLER}" \
-	&& sed -i '/systemctl start/d' "${INSTALLER}" \
-	&& sed -i '/setStaticIPv4 #/d' "${INSTALLER}" \
-	&& sed -i "/restartServices$/d" "${INSTALLER}" \
-	&& sed -i "/confLogging$/d" "${INSTALLER}" \
-	&& sed -i "s|main \"\$@\"|if [[ -z \"\$IN_DOCKER\" ]]; then\n\tmain \"\$@\"\nfi|g" "${INSTALLER}" \
-	&& sed -i 's|confOVPN$|createOVPNuser|g' "${INSTALLER}" \
-	&& sed -i 's|confNetwork$|[[ ! -z "\$IN_DOCKER" ]] \&\& confNetwork|g' "${INSTALLER}" \
-	&& sed -i "s|confOpenVPN(){|generateServerName(){|" "${INSTALLER}" \
-	&& sed -i "s|# Backup the openvpn folder|echo \"SERVER_NAME=\$SERVER_NAME\" >> \"/etc/openvpn/.server_name\"\n}\n\nbackupOpenVPN(){\n\t# Backup the openvpn folder|" "${INSTALLER}" \
-	&& sed -i "s|\tif \[ -f /etc/openvpn/server.conf \]; then|}\n\nconfOpenVPN(){\n\tif [ -f /etc/openvpn/server.conf ]; then|" "${INSTALLER}" \
-	&& sed -i 's|cd /etc/openvpn/easy-rsa|$SUDO mv /etc/openvpn /etc/openvpn.orig\n}\n\nGenerateOpenVPN() {\n\t$SUDO cp -R /etc/openvpn.orig/* /etc/openvpn/\n\tcd /etc/openvpn/easy-rsa|' "${INSTALLER}" \
-	&& sed -i "s|  if ! getent passwd openvpn; then|}\n\ncreateOVPNuser(){\n  if ! getent passwd openvpn; then|" "${INSTALLER}" \
-	&& sed -i "s|getent passwd openvpn|getent passwd openvpn \>\& /dev/null|" "${INSTALLER}" \
-	&& sed -i "s|  \${SUDOE} chown \"\$debianOvpnUserGroup\" /etc/openvpn/crl.pem|}\n\ncreateServerConf(){\n  \${SUDOE} chown \"\$debianOvpnUserGroup\" /etc/openvpn/crl.pem|" "${INSTALLER}"
+RUN cp "${ORIGINAL}" "${MODDED}" \
+	&& sed -i 's/debconf-apt-progress --//g' "${MODDED}" \
+	&& sed -i '/systemctl start/d' "${MODDED}" \
+	&& sed -i '/setStaticIPv4 #/d' "${MODDED}" \
+	&& sed -i "/restartServices$/d" "${MODDED}" \
+	&& sed -i "/confLogging$/d" "${MODDED}" \
+	&& sed -i 's|confOVPN$|createOVPNuser|g' "${MODDED}" \
+	&& sed -i '/confNetwork$/d' "${MODDED}" \
+	&& sed -i "s|confOpenVPN(){|generateServerName(){|" "${MODDED}" \
+	&& sed -i "s|# Backup the openvpn folder|echo \"SERVER_NAME=\$SERVER_NAME\" >> \"/etc/openvpn/.server_name\"\n}\n\nbackupOpenVPN(){\n\t# Backup the openvpn folder|" "${MODDED}" \
+	&& sed -i "s|\tif \[ -f /etc/openvpn/server.conf \]; then|}\n\nconfOpenVPN(){\n\tif [ -f /etc/openvpn/server.conf ]; then|" "${MODDED}" \
+	&& sed -i 's|cd /etc/openvpn/easy-rsa|$SUDO mv /etc/openvpn /etc/openvpn.orig\n}\n\nGenerateOpenVPN() {\n\t$SUDO cp -R /etc/openvpn.orig/* /etc/openvpn/\n\tcd /etc/openvpn/easy-rsa|' "${MODDED}" \
+	&& sed -i "s|  if ! getent passwd openvpn; then|}\n\ncreateOVPNuser(){\n  if ! getent passwd openvpn; then|" "${MODDED}" \
+	&& sed -i "s|  \${SUDOE} chown \"\$debianOvpnUserGroup\" /etc/openvpn/crl.pem|}\n\ncreateServerConf(){\n  \${SUDOE} chown \"\$debianOvpnUserGroup\" /etc/openvpn/crl.pem|" "${MODDED}" \
+	&& sed -i "s|getent passwd openvpn|getent passwd openvpn \>\& /dev/null|" "${MODDED}"
 
 #=============================================================================================================================
-# Run the installer, clean up leftover archive files, then clean up apt lists and files in "/var/tmp" and "/tmp":
+# What each line does (in order):
+#  1. Run the modified installer
+#  2. Clean up leftover archive files
+#  3. Removes any files in the "/var/lib/apt/lists" and "/var/tmp" folders
+#  4. Removes the calling of function "main"
+# NOTE: It's tempting to also remove files from "/tmp", but our "run" script requires the modded install located there!
 #=============================================================================================================================
-RUN "${INSTALLER}" --unattended "${setupVars}" --reconfigure \
-	&& mv /tmp/setupVars.conf "${setupVars}" \
+RUN "${MODDED}" --unattended "${setupVars}" --reconfigure \
 	&& apt-get clean \
-	&& rm -rf /var/lib/apt/lists/* /var/tmp/* /tmp/*
+	&& rm -rf /var/lib/apt/lists/* /var/tmp/* \
+	&& sed -i "/main \"\$@\"/d" "${MODDED}"
 
+#=============================================================================================================================
+# Everything else required for this Docker image:
+#=============================================================================================================================
 EXPOSE 1194
-
 WORKDIR /home/"${install_user}"
 COPY run .
 CMD ["./run"]

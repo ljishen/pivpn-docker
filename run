@@ -8,7 +8,7 @@
 # main procedural
 {
 	pivpnFilesDir=/usr/local/src/pivpn
-	INSTALLER=${pivpnFilesDir}/auto_install/install.sh
+	INSTALLER=/tmp/pivpn_install_modded.sh
 
 	# Skip execution when sourcing the INSTALLER
 	IN_DOCKER=true
@@ -23,6 +23,8 @@
 	SUDOE=
 	runUnattended=true
 	USING_UFW=0
+	pivpnDEV="tun0"
+	pivpnNET="10.8.0.0"
 
 	# shellcheck disable=SC1091
 	source /etc/pivpn/setupVars.conf
