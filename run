@@ -1,9 +1,23 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034,SC2154
-# SC2034: foo appears unused. Verify it or export it.
-# SC2154: var is referenced but not assigned.
 
-[[ ! -d /etc/openvpn ]] && mkdir /etc/openvpn
+# Make sure we are running in privleged mode:
+if ! ip link add dummy0 type dummy >/dev/null; then
+	printf "::: Docker Container not running in privleged mode, exiting\\n"
+	exit 1
+fi
+ip link delete dummy0 >/dev/null
+
+# If the "/etc/openvpn" directory isn't mounted, fail starting the container!
+if ! mount | grep "/etc/openvpn" >& /dev/null; then
+	printf "::: Storage location \"/etc/openvpn\" is not mounted, exiting\\n"
+	exit 1
+fi
+
+# If the "/home/pivpn/ovpns" directory isn't mounted, fail starting the container!
+if ! mount | grep "/home/pivpn/ovpns" >& /dev/null; then
+	printf "::: Storage location \"/home/pivpn/ovpns\" is not mounted, exiting\\n"
+	exit 1
+fi
 
 # main procedural
 {
@@ -22,23 +36,29 @@
 	SUDO=
 	SUDOE=
 	runUnattended=true
-	USING_UFW=0
-	pivpnDEV="tun0"
-	pivpnNET="10.8.0.0"
 
-	# shellcheck disable=SC1091
-	source /etc/pivpn/setupVars.conf
+	# If the server name has been decided, read it in now.  This is done before 
+	# reading "setupVars.conf" to avoid incorrectly overwriting the setting.
 	[[ -f /etc/openvpn/.server_name ]] && source /etc/openvpn/.server_name
 
-	# The right way to test if a variable is unset or not.
-	# See https://stackoverflow.com/a/13864829
-	if [ -z ${IPv4dns+x} ]; then
-		IPv4dns=$(nslookup 127.0.0.1 | grep Server: | awk '{print $2}')
-	fi
+	# Set all the variables that have nothing to do with PiVPN connection settings:
+	cat /tmp/setupVars.conf | grep -v "#" | grep -v "^pivpn" > /tmp/vars
 
-	if [ -z ${pivpnHOST+x} ]; then
-		if ! pivpnHOST=$(dig +short myip.opendns.com @resolver1.opendns.com)
-		then
+	# Set PiVPN connection settings variables ONLY if they haven't been set yet:
+	cat /tmp/setupVars.conf | grep -v "#" | grep "^pivpn" | while IFS== read -r key val ; do [[ "${!key}" == "" ]] && echo $key="$val"; done >> /tmp/vars
+	source /tmp/vars
+
+	# Set these variables using their "pivpn*" counterparts:
+	DOWNLOAD_DH_PARAM=${pivpnDH_DOWNLOAD:-"${DOWNLOAD_DH_PARAM:-"0"}"}
+	USE_PREDEFINED_DH_PARAM=${pivpnDH_PREDEFINED:-"${USE_PREDEFINED_DH_PARAM:-"0"}"}
+	TWO_POINT_FOUR=${pivpnTWO_POINT_FOUR:-"${TWO_POINT_FOUR:-"0"}"}
+	pivpnDNS1=${pivpnDNS1:-"8.8.8.8"}
+	pivpnDNS2=${pivpnDNS2:-"8.8.4.4"}
+	[[ "${pivpnDNS2}" == "none" ]] && unset pivpnDNS2
+	pivpnWEB_MGMT=${pivpnMANAGEMENT:-"$(($pivpnGUI_PORT + 1))"}
+
+	if [ -z "${pivpnHOST}" ]; then
+		if ! pivpnHOST=$(dig +short myip.opendns.com @resolver1.opendns.com); then
 			echo "dig failed, now trying to curl eth0.me"
 			if ! pivpnHOST=$(curl eth0.me)
 			then
@@ -48,18 +68,51 @@
 		fi
 	fi
 
-	# Call functions in the INSTALLER
+	# Generate server certificate and DH parameters if necessary.
 	[[ -z "${IPv4dev}" ]] && chooseInterface
+	[[ -z "${pivpnHOST}" ]] && askPublicIPOrDNS
 	[[ -z "${SERVER_NAME}" ]] && generateServerName
-	[[ ! -d /etc/openvpn/easy-rsa ]] && GenerateOpenVPN
+	if [[ ! -d /etc/openvpn/easy-rsa ]]; then
+		# Generate the server certificate and DH parameters.
+		GenerateOpenVPN
+
+		#Set permissions for easy-rsa and open vpn to be modified by the web user.
+		chown -R www-data:www-data /etc/openvpn/easy-rsa
+		chown -R www-data:www-data /etc/openvpn/clients/
+		chmod -R 755 /etc/openvpn/
+		chmod -R 777 /etc/openvpn/crl.pem
+		chmod g+s /etc/openvpn/clients/
+		chmod g+s /etc/openvpn/easy-rsa/
+	fi
+	[[ ! -f /etc/openvpn/.encrypt ]] && echo "pivpnENCRYPT=${pivpnENCRYPT}" > /etc/openvpn/.encrypt
+	source /etc/openvpn/.encrypt
+
+	# Create the "/etc/openvpn/server.conf" file.
 	createServerConf
+
+	# Change the VPN network adapter's name if it is not "tun0".
+	[[ ! "pivpnDEV" = "tun0" ]] && sed -i "s|dev tun|dev ${pivpnDEV}\ndev-type tun|" /etc/openvpn/server.conf
+
+	# Configure the network:
 	confNetwork
 	confOVPN
 
-	printf "\\n\\n::: PiVPN Service Started\\n"
-	cd /etc/openvpn
-	openvpn --config server.conf
-} 2>&1 | tee "/etc/pivpn-openvpn.log"
+	# Start the Web Management page:
+	if [[ "${pivpnWEB_PORT}" -gt 0 ]]; then
+		# Add the OpenVPN management port to the server configuration...
+		echo "management 127.0.0.1 ${pivpnWEB_MGMT}" >> /etc/openvpn/server.conf
 
-# When script is complete, transfer log to persistant OpenVPN directory:
-[[ -d /etc/openvpn ]] && mv /etc/pivpn-openvpn.log /etc/openvpn/
+		# Configure web management password:
+		echo "admin:${pivpnWEB_PASS}" > /etc/lighttpd/.lighttpdpassword
+
+		# Notify user that Lighttpd has been started...
+		printf "::: Starting Lighttpd on port ${pivpnWEB_PORT}\n"
+		pgrep lighttpd >& /dev/null && pkill lighttpd
+		sed -i "s|= 80|= ${pivpnWEB_PORT}|g" /etc/lighttpd/lighttpd.conf
+		/usr/sbin/lighttpd -f /etc/lighttpd/lighttpd.conf
+	fi
+
+	# Notify user that OpenVPN has been started....
+	printf "::: PiVPN Service Started on port ${pivpnPORT}\\n"
+	openvpn --config /etc/openvpn/server.conf
+} 2>&1 | tee "/etc/openvpn/pivpn-docker.log"
